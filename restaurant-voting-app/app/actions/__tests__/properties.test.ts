@@ -13,6 +13,7 @@ const tagSetArb = fc.record({
   cuisine: fc.string({ minLength: 1, maxLength: 50 }),
   budget: fc.constantFrom("low" as const, "medium" as const, "high" as const),
   groupSize: fc.integer({ min: 1, max: 20 }),
+  location: fc.string({ maxLength: 50 }),
 });
 
 const restaurantArb = fc.record({

@@ -40,6 +40,7 @@ describe("createSession", () => {
       cuisine: "Mexican",
       budget: "medium",
       groupSize: 4,
+      location: "Belfast",
     });
 
     // Mock Places API success
@@ -84,6 +85,7 @@ describe("createSession", () => {
       cuisine: "Mexican",
       budget: "medium",
       groupSize: 4,
+      location: "Belfast",
     });
   });
 
@@ -126,6 +128,7 @@ describe("createSession", () => {
       cuisine: "Italian",
       budget: "high",
       groupSize: 2,
+      location: "",
     });
     mockFetchRestaurants.mockRejectedValue(
       new PlacesAPIError("API rate limit exceeded", 429)
@@ -145,6 +148,7 @@ describe("createSession", () => {
       cuisine: "Japanese",
       budget: "low",
       groupSize: 3,
+      location: "",
     });
     mockFetchRestaurants.mockResolvedValue([
       {

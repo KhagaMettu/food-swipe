@@ -35,6 +35,7 @@ export default function ErrorScreen({ sessionId, session }: ErrorScreenProps) {
           cuisine: "restaurant",
           budget: "medium",
           groupSize: 2,
+          location: "",
         });
 
         if (!result.success) {

@@ -23,7 +23,7 @@ const mockIsCacheComplete = isCacheComplete as jest.MockedFunction<
 describe("Restaurant Data Caching (Task 7)", () => {
   const mockSessionId = "session-cache-test";
   const mockHostUid = "host-uid-123";
-  const mockTagSet = { cuisine: "Italian", budget: "medium" as const, groupSize: 4 };
+  const mockTagSet = { cuisine: "Italian", budget: "medium" as const, groupSize: 4, location: "Belfast" };
 
   const completeSession = {
     id: mockSessionId,

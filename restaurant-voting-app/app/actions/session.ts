@@ -153,7 +153,7 @@ export async function createSession(
 export async function retryFetchRestaurants(
   sessionId: string,
   hostUid: string,
-  tagSet: { cuisine: string; budget: "low" | "medium" | "high"; groupSize: number }
+  tagSet: { cuisine: string; budget: "low" | "medium" | "high"; groupSize: number; location: string }
 ): Promise<RetryResult> {
   try {
     // Read the existing session
