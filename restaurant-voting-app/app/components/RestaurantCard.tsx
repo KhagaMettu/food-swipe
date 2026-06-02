@@ -38,6 +38,7 @@ export default function RestaurantCard({
 
   // Delay enabling drag until after mount to avoid projection issues
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -106,6 +107,7 @@ export default function RestaurantCard({
         {/* Photo */}
         <div className="relative h-48 w-full bg-[#8ECAE6]/20 flex-shrink-0">
           {photoUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={photoUrl}
               alt={`Photo of ${restaurant.displayName}`}

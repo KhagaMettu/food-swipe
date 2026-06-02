@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "@/app/lib/firebase";
 import { useAuth } from "@/app/context/AuthContext";
+import { trackEvent, reportError } from "@/app/lib/analytics";
 import RestaurantCard from "./RestaurantCard";
+import UndoButton from "./UndoButton";
 import WaitingScreen from "./WaitingScreen";
 import type { Restaurant } from "@/types";
 
@@ -30,6 +32,8 @@ export default function SwipeDeck({ sessionId, restaurants }: SwipeDeckProps) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [votedCards, setVotedCards] = useState<Set<string>>(new Set());
+  const [lastSwipedRestaurantId, setLastSwipedRestaurantId] = useState<string | null>(null);
+  const [isUndoing, setIsUndoing] = useState(false);
 
   const remaining = restaurants.length - currentIndex;
   const isComplete = currentIndex >= restaurants.length;
@@ -56,15 +60,22 @@ export default function SwipeDeck({ sessionId, restaurants }: SwipeDeckProps) {
           { merge: true }
         );
 
+        // Track swipe event
+        trackEvent(direction === "accept" ? "swipe_accept" : "swipe_reject", {
+          sessionId,
+          restaurantId: restaurant.id,
+        });
+
         // Mark card as voted and advance
         setVotedCards((prev) => new Set(prev).add(restaurant.id));
+        setLastSwipedRestaurantId(restaurant.id);
         setCurrentIndex((prev) => prev + 1);
       } catch (err) {
-        setWriteError(
-          err instanceof Error
-            ? err.message
-            : "Failed to record vote. Please try again."
-        );
+        const error = err instanceof Error
+          ? err
+          : new Error("Failed to record vote. Please try again.");
+        reportError(error, { component: "SwipeDeck", sessionId, restaurantId: restaurants[currentIndex]?.id });
+        setWriteError(error.message);
       } finally {
         setIsAnimating(false);
       }
@@ -76,9 +87,51 @@ export default function SwipeDeck({ sessionId, restaurants }: SwipeDeckProps) {
     setWriteError(null);
   }, []);
 
+  const handleUndo = useCallback(async () => {
+    if (!uid || !lastSwipedRestaurantId || isUndoing || isAnimating) return;
+
+    setIsUndoing(true);
+    setWriteError(null);
+
+    try {
+      // Remove the vote field from Firestore
+      const voteRef = doc(db, "sessions", sessionId, "votes", uid);
+      await updateDoc(voteRef, { [lastSwipedRestaurantId]: deleteField() });
+
+      // Rewind local state
+      setVotedCards((prev) => {
+        const next = new Set(prev);
+        next.delete(lastSwipedRestaurantId);
+        return next;
+      });
+      setCurrentIndex((prev) => prev - 1);
+
+      // Single-level undo: clear the last swiped ID
+      setLastSwipedRestaurantId(null);
+
+      trackEvent("swipe_undo", {
+        sessionId,
+        restaurantId: lastSwipedRestaurantId,
+      });
+    } catch (err) {
+      const error =
+        err instanceof Error
+          ? err
+          : new Error("Failed to undo swipe. Please try again.");
+      reportError(error, {
+        component: "SwipeDeck",
+        sessionId,
+        restaurantId: lastSwipedRestaurantId,
+      });
+      setWriteError(error.message);
+    } finally {
+      setIsUndoing(false);
+    }
+  }, [uid, sessionId, lastSwipedRestaurantId, isUndoing, isAnimating]);
+
   // Show WaitingScreen after all cards are swiped
   if (isComplete) {
-    return <WaitingScreen />;
+    return <WaitingScreen sessionId={sessionId} restaurants={restaurants} />;
   }
 
   return (
@@ -92,7 +145,7 @@ export default function SwipeDeck({ sessionId, restaurants }: SwipeDeckProps) {
         </div>
 
         {/* Card stack */}
-        <div className="relative h-[360px] sm:h-[400px] w-full">
+        <div className="relative h-[360px] sm:h-[400px] w-full" style={{ touchAction: "none" }}>
           {restaurants.map((restaurant, index) => {
             // Only render current card and up to 2 peek cards behind
             if (index < currentIndex || index > currentIndex + 2) return null;
@@ -120,6 +173,15 @@ export default function SwipeDeck({ sessionId, restaurants }: SwipeDeckProps) {
               </div>
             );
           })}
+        </div>
+
+        {/* Undo button */}
+        <div className="flex justify-center">
+          <UndoButton
+            canUndo={currentIndex > 0 && lastSwipedRestaurantId !== null}
+            isLoading={isUndoing || isAnimating}
+            onUndo={handleUndo}
+          />
         </div>
 
         {/* Error notification */}

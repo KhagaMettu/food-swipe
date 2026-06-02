@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import {
   doc,
   onSnapshot,
@@ -14,12 +15,15 @@ import {
 import { db } from "@/app/lib/firebase";
 import { useAuth } from "@/app/context/AuthContext";
 import { checkForMatch } from "@/app/lib/match";
+import { trackEvent } from "@/app/lib/analytics";
+import ErrorBoundary from "@/app/components/ErrorBoundary";
 import LobbyScreen from "@/app/components/LobbyScreen";
 import SwipeDeck from "@/app/components/SwipeDeck";
 import WaitingScreen from "@/app/components/WaitingScreen";
 import ErrorScreen from "@/app/components/ErrorScreen";
 import MatchScreen from "@/app/components/MatchScreen";
 import NoMatchScreen from "@/app/components/NoMatchScreen";
+import NameModal from "@/app/components/NameModal";
 import type { Session, SessionState } from "@/types";
 
 const MAX_PARTICIPANTS = 10;
@@ -37,6 +41,7 @@ export default function SessionPage() {
   const [notFound, setNotFound] = useState(false);
   const [sessionFull, setSessionFull] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [showNameModal, setShowNameModal] = useState(false);
 
   const hasRegistered = useRef(false);
 
@@ -53,6 +58,11 @@ export default function SessionPage() {
       const existingDoc = snapshot.docs.find((d) => d.id === uid);
       if (existingDoc) {
         hasRegistered.current = true;
+        // Check if participant already has a displayName
+        const data = existingDoc.data();
+        if (!data.displayName) {
+          setShowNameModal(true);
+        }
         return;
       }
 
@@ -68,12 +78,28 @@ export default function SessionPage() {
         completedAt: null,
       });
 
+      trackEvent("session_joined", { sessionId, uid });
       hasRegistered.current = true;
+      // Show name modal for new participants
+      setShowNameModal(true);
     } catch (err) {
       setJoinError(
         err instanceof Error ? err.message : "Failed to join session"
       );
     }
+  }, [uid, sessionId]);
+
+  // Handle display name submission from NameModal
+  const handleNameSubmit = useCallback(async (displayName: string) => {
+    if (!uid || !sessionId) return;
+    try {
+      await updateDoc(doc(db, "sessions", sessionId, "participants", uid), {
+        displayName,
+      });
+    } catch {
+      // Best-effort: if update fails, participant still joins without a custom name
+    }
+    setShowNameModal(false);
   }, [uid, sessionId]);
 
   // Subscribe to session document
@@ -106,6 +132,7 @@ export default function SessionPage() {
   // Register participant once session is loaded
   useEffect(() => {
     if (!loading && session && uid && !notFound && !sessionFull) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       registerParticipant();
     }
   }, [loading, session, uid, notFound, sessionFull, registerParticipant]);
@@ -149,6 +176,7 @@ export default function SessionPage() {
             state: "match",
             matchedRestaurantId: matchedId,
           });
+          trackEvent("match_found", { sessionId, restaurantId: matchedId });
         } catch {
           // Last-write-wins is safe; ignore errors
         }
@@ -169,6 +197,7 @@ export default function SessionPage() {
           await updateDoc(doc(db, "sessions", sessionId), {
             state: "no_match",
           });
+          trackEvent("no_match", { sessionId });
         } catch {
           // Best-effort
         }
@@ -176,6 +205,7 @@ export default function SessionPage() {
     });
 
     return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, session?.state, session?.restaurants]);
 
   // Disconnection handler
@@ -265,13 +295,38 @@ export default function SessionPage() {
 
   const state: SessionState = session.state;
 
+  // Show name modal overlay if needed
+  const nameModal = showNameModal && uid ? (
+    <NameModal
+      uid={uid}
+      onSubmit={handleNameSubmit}
+      onSkip={() => {}}
+    />
+  ) : null;
+
   switch (state) {
     case "lobby":
-      return <LobbyScreen sessionId={sessionId} session={session} />;
+      return (
+        <ErrorBoundary sessionId={sessionId} componentName="SessionPage">
+          {nameModal}
+          <LobbyScreen sessionId={sessionId} session={session} />
+        </ErrorBoundary>
+      );
     case "active":
-      return <SwipeDeck sessionId={sessionId} restaurants={session.restaurants} />;
+      return (
+        <ErrorBoundary sessionId={sessionId} componentName="SessionPage">
+          {nameModal}
+          <ErrorBoundary sessionId={sessionId} componentName="SwipeDeck">
+            <SwipeDeck sessionId={sessionId} restaurants={session.restaurants} />
+          </ErrorBoundary>
+        </ErrorBoundary>
+      );
     case "waiting":
-      return <WaitingScreen />;
+      return (
+        <ErrorBoundary sessionId={sessionId} componentName="SessionPage">
+          <WaitingScreen sessionId={sessionId} restaurants={session.restaurants} />
+        </ErrorBoundary>
+      );
     case "match": {
       const matchedRestaurant = session.restaurants.find(
         (r) => r.id === session.matchedRestaurantId
@@ -284,16 +339,48 @@ export default function SessionPage() {
         );
       }
       return (
-        <MatchScreen
-          restaurant={matchedRestaurant}
-          hostUid={session.hostUid}
-        />
+        <ErrorBoundary sessionId={sessionId} componentName="SessionPage">
+          <ErrorBoundary sessionId={sessionId} componentName="MatchScreen">
+            <MatchScreen
+              restaurant={matchedRestaurant}
+              hostUid={session.hostUid}
+            />
+          </ErrorBoundary>
+        </ErrorBoundary>
       );
     }
     case "no_match":
-      return <NoMatchScreen />;
+      return (
+        <ErrorBoundary sessionId={sessionId} componentName="SessionPage">
+          <NoMatchScreen />
+        </ErrorBoundary>
+      );
     case "error":
-      return <ErrorScreen sessionId={sessionId} session={session} />;
+      return (
+        <ErrorBoundary sessionId={sessionId} componentName="SessionPage">
+          <ErrorScreen sessionId={sessionId} session={session} />
+        </ErrorBoundary>
+      );
+    case "cancelled":
+      return (
+        <ErrorBoundary sessionId={sessionId} componentName="SessionPage">
+          <div
+            className="flex min-h-screen flex-col items-center justify-center gap-4 px-4"
+            style={{ background: "linear-gradient(180deg, #8ECAE6 0%, #219EBC 100%)" }}
+          >
+            <h1 className="text-2xl font-bold text-[#023047]">Session Cancelled</h1>
+            <p className="text-sm text-[#023047]/70 text-center max-w-sm">
+              The host has cancelled this session.
+            </p>
+            <Link
+              href="/"
+              className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#FFB703] px-6 py-3 text-sm font-semibold text-[#023047] hover:bg-[#FB8500] transition-colors min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFB703]"
+            >
+              Go Home
+            </Link>
+          </div>
+        </ErrorBoundary>
+      );
     default:
       return null;
   }

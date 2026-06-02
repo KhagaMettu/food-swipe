@@ -18,7 +18,10 @@ import { PlacesAPIError } from "@/app/lib/errors";
  * @returns Array of up to 5 restaurants
  * @throws PlacesAPIError on API errors
  */
-export async function fetchRestaurants(tagSet: TagSet): Promise<Restaurant[]> {
+export async function fetchRestaurants(
+  tagSet: TagSet,
+  locationBias?: { lat: number; lng: number }
+): Promise<Restaurant[]> {
   // Runtime guard: ensure this is running in a server context
   if (typeof window !== "undefined") {
     throw new PlacesAPIError(
@@ -34,23 +37,29 @@ export async function fetchRestaurants(tagSet: TagSet): Promise<Restaurant[]> {
     );
   }
 
-  // Map budget to price level filter
-  const priceLevel = {
-    low: "PRICE_LEVEL_INEXPENSIVE",
-    medium: "PRICE_LEVEL_MODERATE",
-    high: "PRICE_LEVEL_EXPENSIVE",
-  }[tagSet.budget];
-
   // Construct the search query — include location if provided
   const locationPart = tagSet.location ? ` in ${tagSet.location}` : "";
   const textQuery = `${tagSet.cuisine} restaurant${locationPart}`;
 
-  const requestBody = {
+  const requestBody: Record<string, unknown> = {
     textQuery,
     maxResultCount: 5,
     // Note: priceLevels filter is available in the API but not strictly required
     // We include it to refine results based on budget
   };
+
+  // Add location bias if coordinates are provided
+  if (locationBias) {
+    requestBody.locationBias = {
+      circle: {
+        center: {
+          latitude: locationBias.lat,
+          longitude: locationBias.lng,
+        },
+        radius: 5000.0, // 5km radius
+      },
+    };
+  }
 
   try {
     const response = await fetch(
@@ -80,6 +89,7 @@ export async function fetchRestaurants(tagSet: TagSet): Promise<Restaurant[]> {
 
     // Map the response to our Restaurant type
     const places = data.places || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return places.map((place: any) => ({
       id: place.id || "",
       displayName: place.displayName?.text || "Unknown Restaurant",

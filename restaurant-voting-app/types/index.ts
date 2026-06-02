@@ -29,7 +29,8 @@ export type SessionState =
   | "waiting"
   | "match"
   | "no_match"
-  | "error";
+  | "error"
+  | "cancelled";
 
 /**
  * The root Firestore document for a voting session.

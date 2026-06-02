@@ -18,6 +18,18 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
+// Mock firebase/firestore
+jest.mock("firebase/firestore", () => ({
+  collection: jest.fn(),
+  onSnapshot: jest.fn(() => jest.fn()),
+  doc: jest.fn(),
+  setDoc: jest.fn(),
+}));
+
+jest.mock("@/app/lib/firebase", () => ({
+  db: {},
+}));
+
 // Helper to render with auth context
 function renderWithAuth(ui: React.ReactElement) {
   return render(
@@ -40,7 +52,12 @@ describe("Accessibility Tests (Task 12.1)", () => {
 
   describe("Waiting Screen", () => {
     it("should have no accessibility violations", async () => {
-      const { container } = render(<WaitingScreen />);
+      const mockRestaurants: Restaurant[] = [
+        { id: "r1", displayName: "Test Restaurant", rating: 4.5, photoReference: null },
+      ];
+      const { container } = render(
+        <WaitingScreen sessionId="test-session" restaurants={mockRestaurants} />
+      );
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });

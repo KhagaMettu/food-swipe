@@ -81,12 +81,15 @@ describe("createSession", () => {
 
     expect(mockValidatePrompt).toHaveBeenCalledWith("4 friends, Mexican, medium budget");
     expect(mockParsePrompt).toHaveBeenCalledWith("4 friends, Mexican, medium budget");
-    expect(mockFetchRestaurants).toHaveBeenCalledWith({
-      cuisine: "Mexican",
-      budget: "medium",
-      groupSize: 4,
-      location: "Belfast",
-    });
+    expect(mockFetchRestaurants).toHaveBeenCalledWith(
+      {
+        cuisine: "Mexican",
+        budget: "medium",
+        groupSize: 4,
+        location: "Belfast",
+      },
+      undefined
+    );
   });
 
   it("returns validation error without calling AI parser for empty prompt", async () => {

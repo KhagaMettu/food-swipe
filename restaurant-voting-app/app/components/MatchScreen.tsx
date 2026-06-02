@@ -62,6 +62,7 @@ export default function MatchScreen({ restaurant, hostUid }: MatchScreenProps) {
           {/* Photo */}
           <div className="h-48 w-full bg-[#8ECAE6]/20">
             {restaurant.photoReference ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={restaurant.photoReference}
                 alt={`Photo of ${restaurant.displayName}`}
@@ -96,49 +97,52 @@ export default function MatchScreen({ restaurant, hostUid }: MatchScreenProps) {
           transition={{ delay: 0.6, duration: 0.4 }}
           className="flex flex-col gap-3"
         >
-          {/* Google Maps button */}
-          <div className="relative group">
+          {/* Google Maps + UberEats: stack vertically on mobile, side-by-side on md+ */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Google Maps button */}
+            <div className="relative group flex-1">
+              <a
+                href={googleMapsLink || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-disabled={!googleMapsLink}
+                className={[
+                  "flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-colors w-full min-h-[44px]",
+                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#219EBC]",
+                  googleMapsLink
+                    ? "bg-[#219EBC] text-white hover:bg-[#023047]"
+                    : "bg-[#8ECAE6]/30 text-[#023047]/40 cursor-not-allowed pointer-events-none",
+                ].join(" ")}
+                data-testid="google-maps-button"
+              >
+                📍 Open in Google Maps
+              </a>
+              {!googleMapsLink && (
+                <span
+                  className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-[#023047] px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
+                  role="tooltip"
+                >
+                  Location data unavailable for this restaurant
+                </span>
+              )}
+            </div>
+
+            {/* UberEats button */}
             <a
-              href={googleMapsLink || undefined}
+              href={uberEatsLink}
               target="_blank"
               rel="noopener noreferrer"
-              aria-disabled={!googleMapsLink}
-              className={[
-                "flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-colors w-full",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#219EBC]",
-                googleMapsLink
-                  ? "bg-[#219EBC] text-white hover:bg-[#023047]"
-                  : "bg-[#8ECAE6]/30 text-[#023047]/40 cursor-not-allowed pointer-events-none",
-              ].join(" ")}
-              data-testid="google-maps-button"
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#FFB703] px-6 py-3 text-sm font-semibold text-[#023047] hover:bg-[#FB8500] transition-colors w-full min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFB703]"
+              data-testid="uber-eats-button"
             >
-              📍 Open in Google Maps
+              🛵 Order on UberEats
             </a>
-            {!googleMapsLink && (
-              <span
-                className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-[#023047] px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
-                role="tooltip"
-              >
-                Location data unavailable for this restaurant
-              </span>
-            )}
           </div>
-
-          {/* UberEats button */}
-          <a
-            href={uberEatsLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#FFB703] px-6 py-3 text-sm font-semibold text-[#023047] hover:bg-[#FB8500] transition-colors w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFB703]"
-            data-testid="uber-eats-button"
-          >
-            🛵 Order on UberEats
-          </a>
 
           {/* Navigation button */}
           <button
             onClick={() => router.push("/")}
-            className="mt-2 rounded-xl border border-[#023047]/20 bg-white/80 px-6 py-3 text-sm font-semibold text-[#023047] hover:bg-white transition-colors w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#023047]"
+            className="mt-2 rounded-xl border border-[#023047]/20 bg-white/80 px-6 py-3 text-sm font-semibold text-[#023047] hover:bg-white transition-colors w-full min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#023047]"
             data-testid="home-button"
           >
             {isHost ? "Start New Session" : "Go to Home"}

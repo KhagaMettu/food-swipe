@@ -47,9 +47,14 @@ jest.mock("framer-motion", () => ({
 
 // Mock firebase/firestore
 const mockSetDoc = jest.fn();
+const mockOnSnapshot = jest.fn(() => jest.fn());
 jest.mock("firebase/firestore", () => ({
   doc: jest.fn(),
   setDoc: (...args: unknown[]) => mockSetDoc(...args),
+  updateDoc: jest.fn().mockResolvedValue(undefined),
+  deleteField: jest.fn(),
+  collection: jest.fn(),
+  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
 }));
 
 jest.mock("@/app/lib/firebase", () => ({

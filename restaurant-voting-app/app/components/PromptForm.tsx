@@ -3,16 +3,21 @@
 import React, { useState, useTransition } from "react";
 import { validatePrompt } from "@/app/lib/validation";
 import { useAuth } from "@/app/context/AuthContext";
+import GeolocationButton from "@/app/components/GeolocationButton";
 
 const MAX_CHARS = 500;
+
+export type LocationBias = { lat: number; lng: number };
 
 interface PromptFormProps {
   /**
    * Server Action to call on valid submission.
-   * Receives the trimmed prompt string.
+   * Receives the trimmed prompt string and optional location bias.
    * Should return an error message string on failure, or null/undefined on success.
    */
-  onSubmit?: (prompt: string) => Promise<string | null | undefined>;
+  onSubmit?: (prompt: string, locationBias?: LocationBias) => Promise<string | null | undefined>;
+  /** Server action to reverse-geocode coordinates */
+  reverseGeocode?: (lat: number, lng: number) => Promise<string>;
 }
 
 /**
@@ -26,12 +31,13 @@ interface PromptFormProps {
  * - Loading state while the Server Action is in flight
  * - Submit button disabled while AuthGate is loading or auth has failed
  */
-export default function PromptForm({ onSubmit }: PromptFormProps) {
+export default function PromptForm({ onSubmit, reverseGeocode }: PromptFormProps) {
   const { uid, loading: authLoading, authError } = useAuth();
   const [prompt, setPrompt] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [locationBias, setLocationBias] = useState<LocationBias | null>(null);
 
   const charCount = prompt.length;
   const isAuthReady = !authLoading && !authError && uid !== null;
@@ -61,7 +67,10 @@ export default function PromptForm({ onSubmit }: PromptFormProps) {
 
     startTransition(async () => {
       try {
-        const error = await onSubmit(prompt.trim());
+        const error = await onSubmit(
+          prompt.trim(),
+          locationBias ?? undefined
+        );
         if (error) {
           setServerError(error);
         }
@@ -92,6 +101,15 @@ export default function PromptForm({ onSubmit }: PromptFormProps) {
           Describe your group&apos;s dining preferences
         </label>
 
+        {reverseGeocode && (
+          <GeolocationButton
+            onLocationChange={(loc) =>
+              setLocationBias(loc ? { lat: loc.lat, lng: loc.lng } : null)
+            }
+            reverseGeocode={reverseGeocode}
+          />
+        )}
+
         <div className="relative">
           <textarea
             id="prompt"
@@ -110,7 +128,7 @@ export default function PromptForm({ onSubmit }: PromptFormProps) {
             aria-invalid={!!(validationError || serverError)}
             disabled={isPending}
             className={[
-              "w-full resize-none rounded-xl border px-4 py-3 text-sm text-[#023047] placeholder:text-[#023047]/40",
+              "w-full resize-none rounded-xl border px-4 py-3 text-base text-[#023047] placeholder:text-[#023047]/40",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#219EBC] focus-visible:ring-offset-1",
               "disabled:cursor-not-allowed disabled:opacity-50",
               validationError || serverError
@@ -159,7 +177,7 @@ export default function PromptForm({ onSubmit }: PromptFormProps) {
         disabled={isSubmitDisabled}
         aria-busy={isPending}
         className={[
-          "flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-colors",
+          "flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-colors min-h-[44px]",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFB703]",
           isSubmitDisabled
             ? "cursor-not-allowed bg-[#8ECAE6]/40 text-[#023047]/40"
