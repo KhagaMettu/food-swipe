@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/app/lib/firebase";
 import { AuthContext } from "@/app/context/AuthContext";
+import { reportError } from "@/app/lib/analytics";
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -54,15 +55,16 @@ export default function AuthGate({ children }: AuthGateProps) {
             setUid(credential.user.uid);
             setLoading(false);
           } catch (err) {
-            setAuthError(
-              err instanceof Error ? err : new Error("Authentication failed.")
-            );
+            const error = err instanceof Error ? err : new Error("Authentication failed.");
+            reportError(error, { component: "AuthGate", action: "signInAnonymously" });
+            setAuthError(error);
             setLoading(false);
           }
           safeUnsubscribe();
         }
       },
       (err) => {
+        reportError(err, { component: "AuthGate", action: "onAuthStateChanged" });
         setAuthError(err);
         setLoading(false);
         safeUnsubscribe();
@@ -76,6 +78,7 @@ export default function AuthGate({ children }: AuthGateProps) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     initAuth();
   }, [initAuth]);
 

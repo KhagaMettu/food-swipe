@@ -65,9 +65,9 @@ describe("RestaurantCard", () => {
     render(<RestaurantCard restaurant={mockRestaurant} onSwipe={onSwipe} />);
 
     expect(screen.getByText("Taco Palace")).toBeInTheDocument();
-    expect(screen.getByText("⭐ 4.5 / 5.0")).toBeInTheDocument();
+    expect(screen.getByText("⭐ 4.5")).toBeInTheDocument();
 
-    const img = screen.getByAltText("Photo of Taco Palace");
+    const img = screen.getByAltText("Photo 1 of Taco Palace");
     expect(img).toBeInTheDocument();
     expect(img.tagName).toBe("IMG");
   });
@@ -142,7 +142,7 @@ describe("RestaurantCard", () => {
     const onSwipe = jest.fn();
     render(<RestaurantCard restaurant={mockRestaurant} onSwipe={onSwipe} />);
 
-    const img = screen.getByAltText("Photo of Taco Palace");
+    const img = screen.getByAltText("Photo 1 of Taco Palace");
     expect(img).toBeInTheDocument();
   });
 

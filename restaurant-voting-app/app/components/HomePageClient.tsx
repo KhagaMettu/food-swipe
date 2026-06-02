@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import PromptForm from "@/app/components/PromptForm";
 import { useAuth } from "@/app/context/AuthContext";
 import { createSession } from "@/app/actions/session";
+import { reverseGeocode } from "@/app/actions/geocode";
+import type { LocationBias } from "@/app/components/PromptForm";
+import type { SearchFiltersState } from "@/app/components/SearchFilters";
 
 /**
  * Client-side wrapper for the home page.
@@ -13,12 +16,19 @@ export default function HomePageClient() {
   const router = useRouter();
   const { uid } = useAuth();
 
-  async function handleSubmit(prompt: string): Promise<string | null> {
+  async function handleSubmit(
+    prompt: string,
+    locationBias?: LocationBias,
+    filters?: SearchFiltersState
+  ): Promise<string | null> {
     if (!uid) {
       return "You must be signed in to create a session.";
     }
 
-    const result = await createSession(prompt, uid);
+    performance.mark("createSession:start");
+    const result = await createSession(prompt, uid, locationBias, filters);
+    performance.mark("createSession:end");
+    performance.measure("createSession", "createSession:start", "createSession:end");
 
     if (result.success) {
       router.push(result.shareUrl);
@@ -42,7 +52,7 @@ export default function HomePageClient() {
         </div>
 
         <div className="rounded-2xl bg-white/90 backdrop-blur-sm shadow-xl p-6">
-          <PromptForm onSubmit={handleSubmit} />
+          <PromptForm onSubmit={handleSubmit} reverseGeocode={reverseGeocode} />
         </div>
       </div>
     </main>

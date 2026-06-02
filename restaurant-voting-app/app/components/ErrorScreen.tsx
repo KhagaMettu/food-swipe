@@ -69,7 +69,7 @@ export default function ErrorScreen({ sessionId, session }: ErrorScreenProps) {
               disabled={isPending}
               aria-busy={isPending}
               className={[
-                "rounded-xl px-6 py-3 text-sm font-semibold transition-colors",
+                "rounded-xl px-6 py-3 text-sm font-semibold transition-colors min-h-[44px]",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFB703]",
                 isPending
                   ? "cursor-not-allowed bg-[#8ECAE6]/40 text-[#023047]/40"

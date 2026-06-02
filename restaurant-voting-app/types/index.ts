@@ -18,6 +18,14 @@ export type Restaurant = {
   displayName: string;
   rating: number; // 0.0–5.0
   photoReference: string | null;
+  photos: string[];
+  address: string | null;
+  priceLevel: string | null;
+  websiteUri: string | null;
+  googleMapsUri: string | null;
+  openNow: boolean | null;
+  weekdayHours: string[] | null;
+  location: { lat: number; lng: number } | null;
 };
 
 /**
@@ -29,7 +37,8 @@ export type SessionState =
   | "waiting"
   | "match"
   | "no_match"
-  | "error";
+  | "error"
+  | "cancelled";
 
 /**
  * The root Firestore document for a voting session.

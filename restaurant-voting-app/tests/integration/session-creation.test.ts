@@ -65,12 +65,16 @@ describe("Integration: Session Creation", () => {
     expect(mockParsePrompt).toHaveBeenCalledWith("4 friends, Italian, Belfast, medium budget");
 
     // Verify Places API was called with parsed TagSet
-    expect(mockFetchRestaurants).toHaveBeenCalledWith({
-      cuisine: "Italian",
-      budget: "medium",
-      groupSize: 4,
-      location: "Belfast",
-    });
+    expect(mockFetchRestaurants).toHaveBeenCalledWith(
+      {
+        cuisine: "Italian",
+        budget: "medium",
+        groupSize: 4,
+        location: "Belfast",
+      },
+      undefined,
+      undefined
+    );
 
     // Verify Firestore document was written with correct structure
     expect(mockSet).toHaveBeenCalledTimes(1);

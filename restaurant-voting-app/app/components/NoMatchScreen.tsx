@@ -25,7 +25,7 @@ export default function NoMatchScreen() {
         </p>
         <button
           onClick={() => router.push("/")}
-          className="mt-6 rounded-xl bg-[#FFB703] px-8 py-3 text-sm font-semibold text-[#023047] hover:bg-[#FB8500] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFB703]"
+          className="mt-6 rounded-xl bg-[#FFB703] px-8 py-3 text-sm font-semibold text-[#023047] hover:bg-[#FB8500] transition-colors min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFB703]"
         >
           Start New Session
         </button>

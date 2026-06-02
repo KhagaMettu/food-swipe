@@ -2,24 +2,43 @@
 
 import type { TagSet, Restaurant } from "@/types";
 import { PlacesAPIError } from "@/app/lib/errors";
+import type { SearchFiltersState } from "@/app/components/SearchFilters";
+
+/**
+ * Haversine formula: straight-line distance between two coordinates in km.
+ */
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 /**
  * Fetches restaurant data from the Google Places API (New).
  *
- * Requirements:
- * - POST /v1/places:searchText with X-Goog-FieldMask header
- * - Field mask: places.id,places.displayName,places.rating,places.photos
- * - maxResultCount: 5
- * - Maps response to Restaurant[]
- * - Throws PlacesAPIError on non-2xx responses
- * - Called exclusively from Server Actions (never exposed to client)
- *
  * @param tagSet - The structured search parameters
+ * @param locationBias - Optional coordinates for location-biased search
+ * @param filters - Optional search filters (price, dietary, radius, show closed)
  * @returns Array of up to 5 restaurants
  * @throws PlacesAPIError on API errors
  */
-export async function fetchRestaurants(tagSet: TagSet): Promise<Restaurant[]> {
-  // Runtime guard: ensure this is running in a server context
+export async function fetchRestaurants(
+  tagSet: TagSet,
+  locationBias?: { lat: number; lng: number },
+  filters?: SearchFiltersState
+): Promise<Restaurant[]> {
   if (typeof window !== "undefined") {
     throw new PlacesAPIError(
       "fetchRestaurants must only be called from a Server Action context"
@@ -34,23 +53,45 @@ export async function fetchRestaurants(tagSet: TagSet): Promise<Restaurant[]> {
     );
   }
 
-  // Map budget to price level filter
-  const priceLevel = {
-    low: "PRICE_LEVEL_INEXPENSIVE",
-    medium: "PRICE_LEVEL_MODERATE",
-    high: "PRICE_LEVEL_EXPENSIVE",
-  }[tagSet.budget];
-
-  // Construct the search query — include location if provided
+  // Construct the search query
   const locationPart = tagSet.location ? ` in ${tagSet.location}` : "";
-  const textQuery = `${tagSet.cuisine} restaurant${locationPart}`;
+  const dietaryPart =
+    filters?.dietary && filters.dietary.length > 0
+      ? ` ${filters.dietary.join(" ")}`
+      : "";
+  const textQuery = `${tagSet.cuisine}${dietaryPart} restaurant${locationPart}`;
 
-  const requestBody = {
+  const requestBody: Record<string, unknown> = {
     textQuery,
-    maxResultCount: 5,
-    // Note: priceLevels filter is available in the API but not strictly required
-    // We include it to refine results based on budget
+    maxResultCount: 10,
   };
+
+  // Map price filter to Places API priceLevels
+  if (filters?.priceLevels && filters.priceLevels.length > 0) {
+    const priceLevelMap = new Map([
+      ["$", "PRICE_LEVEL_INEXPENSIVE"],
+      ["$$", "PRICE_LEVEL_MODERATE"],
+      ["$$$", "PRICE_LEVEL_EXPENSIVE"],
+      ["$$$$", "PRICE_LEVEL_VERY_EXPENSIVE"],
+    ]);
+    requestBody.priceLevels = filters.priceLevels.map(
+      (p) => priceLevelMap.get(p) ?? "PRICE_LEVEL_MODERATE"
+    );
+  }
+
+  // Add location bias with configurable radius
+  if (locationBias) {
+    const radiusMeters = (filters?.radiusKm ?? 5) * 1000;
+    requestBody.locationBias = {
+      circle: {
+        center: {
+          latitude: locationBias.lat,
+          longitude: locationBias.lng,
+        },
+        radius: radiusMeters,
+      },
+    };
+  }
 
   try {
     const response = await fetch(
@@ -61,7 +102,7 @@ export async function fetchRestaurants(tagSet: TagSet): Promise<Restaurant[]> {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": apiKey,
           "X-Goog-FieldMask":
-            "places.id,places.displayName,places.rating,places.photos",
+            "places.id,places.displayName,places.rating,places.photos,places.formattedAddress,places.priceLevel,places.websiteUri,places.googleMapsUri,places.currentOpeningHours,places.location",
         },
         body: JSON.stringify(requestBody),
       }
@@ -78,16 +119,55 @@ export async function fetchRestaurants(tagSet: TagSet): Promise<Restaurant[]> {
 
     const data = await response.json();
 
-    // Map the response to our Restaurant type
+    // Map response and optionally filter out closed restaurants
     const places = data.places || [];
-    return places.map((place: any) => ({
-      id: place.id || "",
-      displayName: place.displayName?.text || "Unknown Restaurant",
-      rating: place.rating || 0,
-      photoReference: place.photos?.[0]?.name
-        ? `https://places.googleapis.com/v1/${place.photos[0].name}/media?maxWidthPx=400&key=${apiKey}`
-        : null,
-    }));
+    const showClosed = filters?.showClosed ?? false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: Restaurant[] = places
+      .filter(
+        (place: any) =>
+          showClosed || place.currentOpeningHours?.openNow !== false
+      )
+      .map((place: any) => ({
+        id: place.id || "",
+        displayName: place.displayName?.text || "Unknown Restaurant",
+        rating: place.rating || 0,
+        photoReference: place.photos?.[0]?.name
+          ? `https://places.googleapis.com/v1/${place.photos[0].name}/media?maxWidthPx=400&key=${apiKey}`
+          : null,
+        photos: (place.photos || [])
+          .slice(0, 5)
+          .map(
+            (photo: any) =>
+              `https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=400&key=${apiKey}`
+          ),
+        address: place.formattedAddress || null,
+        priceLevel: place.priceLevel || null,
+        websiteUri: place.websiteUri || null,
+        googleMapsUri: place.googleMapsUri || null,
+        openNow: place.currentOpeningHours?.openNow ?? null,
+        weekdayHours: place.currentOpeningHours?.weekdayDescriptions || null,
+        location: place.location
+          ? { lat: place.location.latitude, lng: place.location.longitude }
+          : null,
+      }));
+
+    // Hard-filter by radius: remove restaurants beyond the user's chosen distance
+    if (locationBias && filters?.radiusKm) {
+      const maxKm = filters.radiusKm;
+      return mapped.filter((r) => {
+        if (!r.location) return true; // keep if no coords (can't calculate)
+        const km = haversineKm(
+          locationBias.lat,
+          locationBias.lng,
+          r.location.lat,
+          r.location.lng
+        );
+        return km <= maxKm;
+      });
+    }
+
+    return mapped;
   } catch (err) {
     if (err instanceof PlacesAPIError) {
       throw err;
