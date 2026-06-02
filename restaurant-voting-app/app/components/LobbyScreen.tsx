@@ -256,11 +256,12 @@ export default function LobbyScreen({ sessionId, session }: LobbyScreenProps) {
             <div className="relative inline-block group">
               <button
                 onClick={() => {
-                  if (participantCount < 2) return;
+                  // TODO: restore participantCount < 2 check after testing
+                  // if (participantCount < 2) return;
                   setStartError(null);
                   setShowCountdown(true);
                 }}
-                disabled={isPending || participantCount < 2}
+                disabled={isPending /* || participantCount < 2 */}
                 aria-busy={isPending}
                 aria-describedby={participantCount < 2 ? "start-tooltip" : undefined}
                 className={[
