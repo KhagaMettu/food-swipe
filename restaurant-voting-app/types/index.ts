@@ -18,6 +18,13 @@ export type Restaurant = {
   displayName: string;
   rating: number; // 0.0–5.0
   photoReference: string | null;
+  address: string | null;
+  priceLevel: string | null;
+  websiteUri: string | null;
+  googleMapsUri: string | null;
+  openNow: boolean | null;
+  weekdayHours: string[] | null;
+  location: { lat: number; lng: number } | null;
 };
 
 /**

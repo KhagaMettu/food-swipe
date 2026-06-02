@@ -70,7 +70,7 @@ export async function fetchRestaurants(
           "Content-Type": "application/json",
           "X-Goog-Api-Key": apiKey,
           "X-Goog-FieldMask":
-            "places.id,places.displayName,places.rating,places.photos",
+            "places.id,places.displayName,places.rating,places.photos,places.formattedAddress,places.priceLevel,places.websiteUri,places.googleMapsUri,places.currentOpeningHours,places.location",
         },
         body: JSON.stringify(requestBody),
       }
@@ -96,6 +96,15 @@ export async function fetchRestaurants(
       rating: place.rating || 0,
       photoReference: place.photos?.[0]?.name
         ? `https://places.googleapis.com/v1/${place.photos[0].name}/media?maxWidthPx=400&key=${apiKey}`
+        : null,
+      address: place.formattedAddress || null,
+      priceLevel: place.priceLevel || null,
+      websiteUri: place.websiteUri || null,
+      googleMapsUri: place.googleMapsUri || null,
+      openNow: place.currentOpeningHours?.openNow ?? null,
+      weekdayHours: place.currentOpeningHours?.weekdayDescriptions || null,
+      location: place.location
+        ? { lat: place.location.latitude, lng: place.location.longitude }
         : null,
     }));
   } catch (err) {

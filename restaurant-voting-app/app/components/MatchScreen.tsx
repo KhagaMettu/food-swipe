@@ -87,6 +87,21 @@ export default function MatchScreen({ restaurant, hostUid }: MatchScreenProps) {
             <p className="text-sm text-[#023047]/60 mt-1">
               ⭐ {restaurant.rating.toFixed(1)} / 5.0
             </p>
+            {restaurant.address && (
+              <p className="text-xs text-[#023047]/50 mt-1">
+                {restaurant.address}
+              </p>
+            )}
+            {restaurant.websiteUri && (
+              <a
+                href={restaurant.websiteUri}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-xs text-[#219EBC] underline hover:text-[#023047]"
+              >
+                Visit website
+              </a>
+            )}
           </div>
         </motion.div>
 

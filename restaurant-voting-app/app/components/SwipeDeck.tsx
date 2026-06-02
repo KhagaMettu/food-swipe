@@ -13,6 +13,7 @@ import type { Restaurant } from "@/types";
 interface SwipeDeckProps {
   sessionId: string;
   restaurants: Restaurant[];
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 /**
@@ -26,7 +27,7 @@ interface SwipeDeckProps {
  * - Displays "X of Y remaining" progress counter
  * - Transitions to WaitingScreen after the last card is swiped
  */
-export default function SwipeDeck({ sessionId, restaurants }: SwipeDeckProps) {
+export default function SwipeDeck({ sessionId, restaurants, userLocation }: SwipeDeckProps) {
   const { uid } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -169,6 +170,7 @@ export default function SwipeDeck({ sessionId, restaurants }: SwipeDeckProps) {
                   onSwipe={handleSwipe}
                   disabled={votedCards.has(restaurant.id) || isAnimating}
                   isActive={index === currentIndex}
+                  userLocation={userLocation}
                 />
               </div>
             );

@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useRef, useCallback, useState, useEffect } from "react";
-import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
+import {
+  motion,
+  useMotionValue,
+  useTransform,
+  type PanInfo,
+} from "framer-motion";
 import { computeSwipeDirection } from "@/app/lib/swipe";
 import type { Restaurant } from "@/types";
 
@@ -10,48 +15,100 @@ interface RestaurantCardProps {
   onSwipe: (direction: "accept" | "reject") => void;
   disabled?: boolean;
   isActive?: boolean;
+  userLocation?: { lat: number; lng: number } | null;
+}
+
+/**
+ * Calculates straight-line distance between two coordinates using Haversine formula.
+ * Returns distance in km.
+ */
+function getDistanceKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Formats distance for display.
+ */
+function formatDistance(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)}m away`;
+  return `${km.toFixed(1)}km away`;
+}
+
+/**
+ * Estimates walking time in minutes (assuming ~5km/h).
+ */
+function estimateWalkMin(km: number): number {
+  return Math.round((km / 5) * 60);
+}
+
+/**
+ * Maps Places API priceLevel to a dollar sign string.
+ */
+function formatPriceLevel(level: string | null): string | null {
+  switch (level) {
+    case "PRICE_LEVEL_FREE":
+      return "Free";
+    case "PRICE_LEVEL_INEXPENSIVE":
+      return "$";
+    case "PRICE_LEVEL_MODERATE":
+      return "$$";
+    case "PRICE_LEVEL_EXPENSIVE":
+      return "$$$";
+    case "PRICE_LEVEL_VERY_EXPENSIVE":
+      return "$$$$";
+    default:
+      return null;
+  }
 }
 
 /**
  * RestaurantCard — a swipeable card displaying restaurant info.
  *
  * Features:
- * - Framer Motion drag="x" with threshold-based swipe detection
- * - ✗ / ✓ buttons as accessibility alternatives to drag
- * - Left/right arrow key support
- * - Visible focus indicator
- * - Displays displayName, rating (1 decimal), photo (with placeholder fallback)
- * - Alt text contains displayName
- * - Disables interaction once a vote is recorded
+ * - Restaurant photo with placeholder fallback
+ * - Distance/walk time from user location (Haversine)
+ * - Expandable details panel (hours, address, website link)
+ * - Framer Motion drag with threshold-based swipe detection
+ * - Keyboard and button accessibility alternatives
  */
 export default function RestaurantCard({
   restaurant,
   onSwipe,
   disabled = false,
   isActive = true,
+  userLocation,
 }: RestaurantCardProps) {
   const constraintsRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
 
-  // Delay enabling drag until after mount to avoid projection issues
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
   const handleDragEnd = useCallback(
     (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
       if (disabled || !isActive) return;
-
       const cardWidth = cardRef.current?.offsetWidth || 300;
       const direction = computeSwipeDirection(info.offset.x, cardWidth);
-
-      if (direction) {
-        onSwipe(direction);
-      }
+      if (direction) onSwipe(direction);
     },
     [disabled, isActive, onSwipe]
   );
@@ -59,7 +116,6 @@ export default function RestaurantCard({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (disabled || !isActive) return;
-
       if (e.key === "ArrowRight") {
         e.preventDefault();
         onSwipe("accept");
@@ -80,8 +136,22 @@ export default function RestaurantCard({
   }, [disabled, isActive, onSwipe]);
 
   const photoUrl = restaurant.photoReference || null;
-
   const canDrag = mounted && isActive && !disabled;
+  const price = formatPriceLevel(restaurant.priceLevel);
+
+  // Calculate distance if both locations are available
+  let distanceText: string | null = null;
+  let walkTime: number | null = null;
+  if (userLocation && restaurant.location) {
+    const km = getDistanceKm(
+      userLocation.lat,
+      userLocation.lng,
+      restaurant.location.lat,
+      restaurant.location.lng
+    );
+    distanceText = formatDistance(km);
+    walkTime = estimateWalkMin(km);
+  }
 
   return (
     <div ref={constraintsRef} className="absolute inset-0">
@@ -105,7 +175,7 @@ export default function RestaurantCard({
         data-testid="restaurant-card"
       >
         {/* Photo */}
-        <div className="relative h-48 w-full bg-[#8ECAE6]/20 flex-shrink-0">
+        <div className="relative h-40 sm:h-48 w-full bg-[#8ECAE6]/20 flex-shrink-0">
           {photoUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -123,16 +193,104 @@ export default function RestaurantCard({
               <span className="text-4xl">🍽️</span>
             </div>
           )}
+          {/* Open/Closed badge */}
+          {restaurant.openNow !== null && (
+            <span
+              className={`absolute top-2 right-2 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                restaurant.openNow
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {restaurant.openNow ? "Open" : "Closed"}
+            </span>
+          )}
         </div>
 
-        {/* Info */}
-        <div className="flex flex-col flex-1 p-4">
+        {/* Info section */}
+        <div className="flex flex-col flex-1 p-4 overflow-y-auto">
           <h2 className="text-lg font-semibold text-[#023047] truncate">
             {restaurant.displayName}
           </h2>
-          <p className="text-sm text-[#023047]/60 mt-1">
-            ⭐ {restaurant.rating.toFixed(1)} / 5.0
-          </p>
+
+          {/* Meta row: rating, price, distance */}
+          <div className="flex items-center gap-2 mt-1 flex-wrap text-sm text-[#023047]/60">
+            <span>⭐ {restaurant.rating.toFixed(1)}</span>
+            {price && <span>· {price}</span>}
+            {distanceText && (
+              <span>
+                · 📍 {distanceText}
+                {walkTime !== null && walkTime <= 30 && ` (~${walkTime} min walk)`}
+              </span>
+            )}
+          </div>
+
+          {/* Address */}
+          {restaurant.address && (
+            <p className="text-xs text-[#023047]/50 mt-1 truncate">
+              {restaurant.address}
+            </p>
+          )}
+
+          {/* Expand/collapse details */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+            className="mt-2 text-xs font-medium text-[#219EBC] hover:text-[#023047] transition-colors self-start"
+            aria-expanded={expanded}
+            aria-controls={`details-${restaurant.id}`}
+          >
+            {expanded ? "Hide details ▲" : "More details ▼"}
+          </button>
+
+          {/* Expandable details panel */}
+          {expanded && (
+            <div
+              id={`details-${restaurant.id}`}
+              className="mt-2 space-y-2 text-xs text-[#023047]/70 border-t border-[#8ECAE6]/20 pt-2"
+            >
+              {/* Hours */}
+              {restaurant.weekdayHours && restaurant.weekdayHours.length > 0 && (
+                <div>
+                  <p className="font-medium text-[#023047]/80 mb-0.5">Hours</p>
+                  <ul className="space-y-0.5">
+                    {restaurant.weekdayHours.map((day, i) => (
+                      <li key={i}>{day}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Links */}
+              <div className="flex gap-3 pt-1">
+                {restaurant.websiteUri && (
+                  <a
+                    href={restaurant.websiteUri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-[#219EBC] underline hover:text-[#023047]"
+                  >
+                    Website
+                  </a>
+                )}
+                {restaurant.googleMapsUri && (
+                  <a
+                    href={restaurant.googleMapsUri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-[#219EBC] underline hover:text-[#023047]"
+                  >
+                    Directions
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action buttons */}

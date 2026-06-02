@@ -16,6 +16,7 @@ import { db } from "@/app/lib/firebase";
 import { useAuth } from "@/app/context/AuthContext";
 import { checkForMatch } from "@/app/lib/match";
 import { trackEvent } from "@/app/lib/analytics";
+import { getCurrentLocation } from "@/app/lib/geolocation";
 import ErrorBoundary from "@/app/components/ErrorBoundary";
 import LobbyScreen from "@/app/components/LobbyScreen";
 import SwipeDeck from "@/app/components/SwipeDeck";
@@ -42,6 +43,7 @@ export default function SessionPage() {
   const [sessionFull, setSessionFull] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [showNameModal, setShowNameModal] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const hasRegistered = useRef(false);
 
@@ -136,6 +138,15 @@ export default function SessionPage() {
       registerParticipant();
     }
   }, [loading, session, uid, notFound, sessionFull, registerParticipant]);
+
+  // Get user location for distance display on cards
+  useEffect(() => {
+    getCurrentLocation().then((result) => {
+      if (result.success) {
+        setUserLocation({ lat: result.lat, lng: result.lng });
+      }
+    });
+  }, []);
 
   // Task 9.1–9.3: Real-time vote tracking and match detection
   useEffect(() => {
@@ -317,7 +328,7 @@ export default function SessionPage() {
         <ErrorBoundary sessionId={sessionId} componentName="SessionPage">
           {nameModal}
           <ErrorBoundary sessionId={sessionId} componentName="SwipeDeck">
-            <SwipeDeck sessionId={sessionId} restaurants={session.restaurants} />
+            <SwipeDeck sessionId={sessionId} restaurants={session.restaurants} userLocation={userLocation} />
           </ErrorBoundary>
         </ErrorBoundary>
       );
