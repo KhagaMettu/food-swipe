@@ -96,6 +96,7 @@ export default function RestaurantCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
 
@@ -136,6 +137,7 @@ export default function RestaurantCard({
   }, [disabled, isActive, onSwipe]);
 
   const photoUrl = restaurant.photoReference || null;
+  const photos = restaurant.photos && restaurant.photos.length > 0 ? restaurant.photos : (photoUrl ? [photoUrl] : []);
   const canDrag = mounted && isActive && !disabled;
   const price = formatPriceLevel(restaurant.priceLevel);
 
@@ -174,15 +176,55 @@ export default function RestaurantCard({
         aria-label={`Restaurant card: ${restaurant.displayName}`}
         data-testid="restaurant-card"
       >
-        {/* Photo */}
+        {/* Photo carousel */}
         <div className="relative h-40 sm:h-48 w-full bg-[#8ECAE6]/20 flex-shrink-0">
-          {photoUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={photoUrl}
-              alt={`Photo of ${restaurant.displayName}`}
-              className="h-full w-full object-cover"
-            />
+          {photos.length > 0 ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photos[photoIndex]}
+                alt={`Photo ${photoIndex + 1} of ${restaurant.displayName}`}
+                className="h-full w-full object-cover"
+              />
+              {/* Navigation dots + arrows */}
+              {photos.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPhotoIndex((i) => (i - 1 + photos.length) % photos.length);
+                    }}
+                    aria-label="Previous photo"
+                    className="absolute left-1 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white text-xs hover:bg-black/60 transition-colors"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPhotoIndex((i) => (i + 1) % photos.length);
+                    }}
+                    aria-label="Next photo"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white text-xs hover:bg-black/60 transition-colors"
+                  >
+                    ›
+                  </button>
+                  {/* Dots */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                    {photos.map((_, i) => (
+                      <span
+                        key={i}
+                        className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                          i === photoIndex ? "bg-white" : "bg-white/50"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
           ) : (
             <div
               className="h-full w-full flex items-center justify-center bg-[#8ECAE6]/30"

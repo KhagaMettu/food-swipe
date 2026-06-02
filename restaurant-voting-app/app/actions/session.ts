@@ -95,6 +95,16 @@ export async function createSession(
     // 3. Fetch restaurants → Restaurant[]
     const restaurants = await fetchRestaurants(tagSet, locationBias, filters);
 
+    if (restaurants.length === 0) {
+      const radiusHint = filters?.radiusKm
+        ? ` within ${filters.radiusKm}km`
+        : "";
+      return {
+        success: false,
+        error: `No restaurants found${radiusHint}. Try increasing the search radius or adjusting your filters.`,
+      };
+    }
+
     // 4. Write Session document to Firestore with retry
     const sessionId = adminDb.collection("sessions").doc().id;
 

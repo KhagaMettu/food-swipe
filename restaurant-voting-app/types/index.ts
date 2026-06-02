@@ -18,6 +18,7 @@ export type Restaurant = {
   displayName: string;
   rating: number; // 0.0–5.0
   photoReference: string | null;
+  photos: string[];
   address: string | null;
   priceLevel: string | null;
   websiteUri: string | null;
