@@ -97,6 +97,7 @@ export default function RestaurantCard({
   const [mounted, setMounted] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
 
@@ -184,7 +185,11 @@ export default function RestaurantCard({
               <img
                 src={photos[photoIndex]}
                 alt={`Photo ${photoIndex + 1} of ${restaurant.displayName}`}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover cursor-zoom-in"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxOpen(true);
+                }}
               />
               {/* Navigation dots + arrows */}
               {photos.length > 1 && (
@@ -370,6 +375,69 @@ export default function RestaurantCard({
           </button>
         </div>
       </motion.div>
+
+      {/* Lightbox overlay */}
+      {lightboxOpen && photos.length > 0 && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Photo viewer"
+          onClick={() => setLightboxOpen(false)}
+        >
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            aria-label="Close photo viewer"
+            className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white text-lg hover:bg-white/30 transition-colors z-10"
+          >
+            ✕
+          </button>
+
+          {/* Full photo */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photos[photoIndex]}
+            alt={`Photo ${photoIndex + 1} of ${restaurant.displayName}`}
+            className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Navigation arrows */}
+          {photos.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPhotoIndex((i) => (i - 1 + photos.length) % photos.length);
+                }}
+                aria-label="Previous photo"
+                className="absolute left-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white text-xl hover:bg-white/30 transition-colors"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPhotoIndex((i) => (i + 1) % photos.length);
+                }}
+                aria-label="Next photo"
+                className="absolute right-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white text-xl hover:bg-white/30 transition-colors"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          {/* Photo counter */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm">
+            {photoIndex + 1} / {photos.length}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
