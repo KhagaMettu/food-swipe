@@ -72,6 +72,7 @@ describe("Integration: Session Creation", () => {
         groupSize: 4,
         location: "Belfast",
       },
+      undefined,
       undefined
     );
 

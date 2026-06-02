@@ -4,6 +4,10 @@ import React, { useState, useTransition } from "react";
 import { validatePrompt } from "@/app/lib/validation";
 import { useAuth } from "@/app/context/AuthContext";
 import GeolocationButton from "@/app/components/GeolocationButton";
+import SearchFilters, {
+  DEFAULT_FILTERS,
+  type SearchFiltersState,
+} from "@/app/components/SearchFilters";
 
 const MAX_CHARS = 500;
 
@@ -12,10 +16,14 @@ export type LocationBias = { lat: number; lng: number };
 interface PromptFormProps {
   /**
    * Server Action to call on valid submission.
-   * Receives the trimmed prompt string and optional location bias.
+   * Receives the trimmed prompt string, optional location bias, and filters.
    * Should return an error message string on failure, or null/undefined on success.
    */
-  onSubmit?: (prompt: string, locationBias?: LocationBias) => Promise<string | null | undefined>;
+  onSubmit?: (
+    prompt: string,
+    locationBias?: LocationBias,
+    filters?: SearchFiltersState
+  ) => Promise<string | null | undefined>;
   /** Server action to reverse-geocode coordinates */
   reverseGeocode?: (lat: number, lng: number) => Promise<string>;
 }
@@ -38,6 +46,8 @@ export default function PromptForm({ onSubmit, reverseGeocode }: PromptFormProps
   const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [locationBias, setLocationBias] = useState<LocationBias | null>(null);
+  const [filters, setFilters] = useState<SearchFiltersState>(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
 
   const charCount = prompt.length;
   const isAuthReady = !authLoading && !authError && uid !== null;
@@ -69,7 +79,8 @@ export default function PromptForm({ onSubmit, reverseGeocode }: PromptFormProps
       try {
         const error = await onSubmit(
           prompt.trim(),
-          locationBias ?? undefined
+          locationBias ?? undefined,
+          filters
         );
         if (error) {
           setServerError(error);
@@ -108,6 +119,22 @@ export default function PromptForm({ onSubmit, reverseGeocode }: PromptFormProps
             }
             reverseGeocode={reverseGeocode}
           />
+        )}
+
+        {/* Filters toggle */}
+        <button
+          type="button"
+          onClick={() => setShowFilters(!showFilters)}
+          aria-expanded={showFilters}
+          className="self-start text-sm font-medium text-[#219EBC] hover:text-[#023047] transition-colors"
+        >
+          {showFilters ? "Hide filters ▲" : "Filters ▼"}
+        </button>
+
+        {showFilters && (
+          <div className="rounded-xl border border-[#8ECAE6]/30 bg-[#8ECAE6]/5 p-3">
+            <SearchFilters filters={filters} onChange={setFilters} />
+          </div>
         )}
 
         <div className="relative">

@@ -10,6 +10,7 @@ import { adminDb } from "@/app/lib/firebase-admin";
 import { buildShareUrl } from "@/app/lib/urls";
 import { trackEvent, reportError } from "@/app/lib/analytics";
 import type { Session, Restaurant } from "@/types";
+import type { SearchFiltersState } from "@/app/components/SearchFilters";
 
 export type CreateSessionResult =
   | { success: true; sessionId: string; shareUrl: string }
@@ -64,7 +65,8 @@ async function writeWithRetry(
 export async function createSession(
   prompt: string,
   hostUid: string,
-  locationBias?: { lat: number; lng: number }
+  locationBias?: { lat: number; lng: number },
+  filters?: SearchFiltersState
 ): Promise<CreateSessionResult> {
   // 0. Rate limit check
   const rateCheck = checkRateLimit(hostUid, "createSession", 5, 15 * 60 * 1000);
@@ -91,7 +93,7 @@ export async function createSession(
     const tagSet = await parsePrompt(prompt.trim());
 
     // 3. Fetch restaurants → Restaurant[]
-    const restaurants = await fetchRestaurants(tagSet, locationBias);
+    const restaurants = await fetchRestaurants(tagSet, locationBias, filters);
 
     // 4. Write Session document to Firestore with retry
     const sessionId = adminDb.collection("sessions").doc().id;

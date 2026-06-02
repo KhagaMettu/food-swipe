@@ -6,6 +6,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { createSession } from "@/app/actions/session";
 import { reverseGeocode } from "@/app/actions/geocode";
 import type { LocationBias } from "@/app/components/PromptForm";
+import type { SearchFiltersState } from "@/app/components/SearchFilters";
 
 /**
  * Client-side wrapper for the home page.
@@ -15,13 +16,17 @@ export default function HomePageClient() {
   const router = useRouter();
   const { uid } = useAuth();
 
-  async function handleSubmit(prompt: string, locationBias?: LocationBias): Promise<string | null> {
+  async function handleSubmit(
+    prompt: string,
+    locationBias?: LocationBias,
+    filters?: SearchFiltersState
+  ): Promise<string | null> {
     if (!uid) {
       return "You must be signed in to create a session.";
     }
 
     performance.mark("createSession:start");
-    const result = await createSession(prompt, uid, locationBias);
+    const result = await createSession(prompt, uid, locationBias, filters);
     performance.mark("createSession:end");
     performance.measure("createSession", "createSession:start", "createSession:end");
 
